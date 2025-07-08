@@ -1,291 +1,239 @@
-import { useState, useEffect } from 'react'
+import React from 'react';
 
-interface KarutaCard {
-  id: number
-  kamiku: string // 上の句
-  shimoku: string // 下の句
-  author: string // 作者
-}
+// --- 型定義 ---
+type KarutaCard = {
+  id: number;
+  img: string; // 画像URL
+  kami_no_ku: string; // 上の句
+  shimo_no_ku: string; // 下の句
+};
 
-function App() {
-  const [cards, setCards] = useState<KarutaCard[]>([])
-  const [currentCard, setCurrentCard] = useState<KarutaCard | null>(null)
-  const [score, setScore] = useState(0)
-  const [gameStarted, setGameStarted] = useState(false)
-  const [readingCard, setReadingCard] = useState(false)
-  const [selectedCards, setSelectedCards] = useState<KarutaCard[]>([])
-  const [gameMode, setGameMode] = useState<'practice' | 'competitive'>('practice')
-  const [speechSupported, setSpeechSupported] = useState(false)
-  const [speechEnabled, setSpeechEnabled] = useState(true)
+type CardState = 'default' | 'moratta' | 'otetsuki';
 
-  // サンプルのかるたカード（百人一首から抜粋）
-  const karutaData: KarutaCard[] = [
-    {
-      id: 1,
-      kamiku: "秋の田の かりほの庵の 苫をあらみ",
-      shimoku: "わが衣手は 露にぬれつつ",
-      author: "天智天皇"
-    },
-    {
-      id: 2,
-      kamiku: "春すぎて 夏来にけらし 白妙の",
-      shimoku: "衣ほすてふ 天の香具山",
-      author: "持統天皇"
-    },
-    {
-      id: 3,
-      kamiku: "あしびきの 山鳥の尾の しだり尾の",
-      shimoku: "ながながし夜を ひとりかも寝む",
-      author: "柿本人麻呂"
-    },
-    {
-      id: 4,
-      kamiku: "田子の浦に うち出でて見れば 白妙の",
-      shimoku: "富士の高嶺に 雪は降りつつ",
-      author: "山部赤人"
-    },
-    {
-      id: 5,
-      kamiku: "奥山に 紅葉踏み分け 鳴く鹿の",
-      shimoku: "声きく時ぞ 秋は悲しき",
-      author: "猿丸大夫"
-    },
-    {
-      id: 6,
-      kamiku: "鵲の 渡せる橋に 置く霜の",
-      shimoku: "白きを見れば 夜ぞ更けにける",
-      author: "中納言家持"
-    }
-  ]
+// --- ダミーデータ ---
+// 本来は百首用意しますが、ここではデモ用に8首用意します。
+const ALL_CARDS: KarutaCard[] = [
+  { id: 1, img: 'https://placehold.co/600x400/a7c957/ffffff?text=1', kami_no_ku: '秋の田の', shimo_no_ku: 'かりほの庵の 苫をあらみ わが衣手は 露にぬれつつ' },
+  { id: 2, img: 'https://placehold.co/600x400/f2e8cf/ffffff?text=2', kami_no_ku: '春過ぎて', shimo_no_ku: '夏来にけらし 白妙の 衣ほすてふ 天の香具山' },
+  { id: 3, img: 'https://placehold.co/600x400/bc4749/ffffff?text=3', kami_no_ku: 'あしびきの', shimo_no_ku: '山鳥の尾の しだり尾の ながながし夜を ひとりかも寝む' },
+  { id: 4, img: 'https://placehold.co/600x400/6a994e/ffffff?text=4', kami_no_ku: '田子の浦に', shimo_no_ku: 'うち出でてみれば 白妙の 富士の高嶺に 雪は降りつつ' },
+  { id: 5, img: 'https://placehold.co/600x400/386641/ffffff?text=5', kami_no_ku: '奥山に', shimo_no_ku: '紅葉踏み分け 鳴く鹿の 声聞く時ぞ 秋は悲しき' },
+  { id: 6, img: 'https://placehold.co/600x400/8a5a44/ffffff?text=6', kami_no_ku: 'かささぎの', shimo_no_ku: '渡せる橋に おく霜の 白きを見れば 夜ぞ更けにける' },
+  { id: 7, img: 'https://placehold.co/600x400/4f772d/ffffff?text=7', kami_no_ku: '天の原', shimo_no_ku: 'ふりさけ見れば 春日なる 三笠の山に 出でし月かも' },
+  { id: 8, img: 'https://placehold.co/600x400/e56b6f/ffffff?text=8', kami_no_ku: 'わが庵は', shimo_no_ku: '都のたつみ しかぞ住む 世をうぢ山と 人はいふなり' },
+];
 
-  useEffect(() => {
-    setCards(karutaData)
+// --- 音声読み上げカスタムフック ---
+const useSpeech = () => {
+  const [isPlaying, setIsPlaying] = React.useState(false);
+
+  const speak = React.useCallback((kami_no_ku: string, shimo_no_ku: string, onEnd: () => void) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
     
-    // Web Speech API サポートチェック
-    if ('speechSynthesis' in window) {
-      setSpeechSupported(true)
-      
-      // 音声リストの読み込み（初回は空の場合があるため）
-      const loadVoices = () => {
-        const voices = speechSynthesis.getVoices()
-        if (voices.length > 0) {
-          console.log('音声リストが読み込まれました:', voices.length, '個の音声が利用可能')
-        }
-      }
-      
-      // 音声リストが変更された時のイベントリスナー
-      speechSynthesis.addEventListener('voiceschanged', loadVoices)
-      loadVoices() // 初回読み込み
-      
-      return () => {
-        speechSynthesis.removeEventListener('voiceschanged', loadVoices)
-      }
-    }
-  }, [])
+    window.speechSynthesis.cancel();
+    setIsPlaying(true);
 
-  // 音声読み上げ関数
-  const speakText = (text: string) => {
-    if (!speechSupported || !speechEnabled) return
+    const utterance1 = new SpeechSynthesisUtterance(kami_no_ku);
+    utterance1.lang = 'ja-JP';
+    utterance1.rate = 1.1;
 
-    // 既存の音声を停止
-    window.speechSynthesis.cancel()
+    const utterance2 = new SpeechSynthesisUtterance(shimo_no_ku);
+    utterance2.lang = 'ja-JP';
+    utterance2.rate = 1.1;
 
-    const utterance = new SpeechSynthesisUtterance(text)
+    utterance1.onend = () => {
+      // 上の句と下の句の間に少し間を空ける
+      setTimeout(() => {
+        window.speechSynthesis.speak(utterance2);
+      }, 300);
+    };
+
+    utterance2.onend = () => {
+      setIsPlaying(false);
+      onEnd();
+    };
+
+    window.speechSynthesis.speak(utterance1);
+  }, []);
+
+  const cancel = React.useCallback(() => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    setIsPlaying(false);
+  }, []);
+
+  return { speak, cancel, isPlaying };
+};
+
+// --- メインコンポーネント ---
+export default function App() {
+  const [cards, setCards] = React.useState<KarutaCard[]>([]);
+  const [cardStates, setCardStates] = React.useState<CardState[]>(Array(4).fill('default'));
+  const [morattaCount, setMorattaCount] = React.useState(0);
+  const [marqueeText, setMarqueeText] = React.useState('');
+  const [currentCardIdx, setCurrentCardIdx] = React.useState<number | null>(null);
+  const [isAnswering, setIsAnswering] = React.useState(false); // 回答中の操作を無効化するフラグ
+
+  const { speak, cancel, isPlaying } = useSpeech();
+
+  // --- 関数定義 ---
+
+  // 新しいカードを4枚配り、ランダムに1枚を読み上げる
+  const dealAndPlayNewCards = React.useCallback(() => {
+    // ALL_CARDSをシャッフル
+    const shuffled = [...ALL_CARDS].sort(() => Math.random() - 0.5);
+    const newCards = shuffled.slice(0, 4);
+    setCards(newCards);
+    setCardStates(Array(4).fill('default'));
+    setIsAnswering(false);
+
+    // ランダムに1枚選んで読み上げる
+    const newTargetIdx = Math.floor(Math.random() * 4);
+    setCurrentCardIdx(newTargetIdx);
     
-    // 日本語の音声設定
-    utterance.lang = 'ja-JP'
-    utterance.rate = 0.8 // 読み上げ速度（通常より少し遅く）
-    utterance.pitch = 1.0 // 音程
-    utterance.volume = 0.8 // 音量
+    const targetCard = newCards[newTargetIdx];
+    setMarqueeText(`${targetCard.kami_no_ku} ${targetCard.shimo_no_ku}`);
+    speak(targetCard.kami_no_ku, targetCard.shimo_no_ku, () => {});
+  }, [speak]);
 
-    // 利用可能な日本語音声を探す
-    const voices = speechSynthesis.getVoices()
-    const japaneseVoice = voices.find(voice => 
-      voice.lang.includes('ja') || voice.name.includes('Japanese')
-    )
-    if (japaneseVoice) {
-      utterance.voice = japaneseVoice
-    }
+  // カードクリック時の処理
+  const handleCardClick = (clickedIndex: number) => {
+    // 回答中、または既に選択済みのカード（もらった/お手つき）は無視
+    if (isAnswering || cardStates[clickedIndex] !== 'default') return;
 
-    window.speechSynthesis.speak(utterance)
-  }
+    // 正解かどうかを判定
+    if (clickedIndex === currentCardIdx) {
+      // --- 正解の場合 ---
+      cancel(); // 読み上げを停止
+      setIsAnswering(true); // 次の問題へ移行するまで操作をロック
 
-  const startGame = () => {
-    setGameStarted(true)
-    setScore(0)
-    setCurrentCard(null)
-    if (gameMode === 'competitive') {
-      // 競技モード：ランダムに選んだカードを場に配置
-      const shuffledCards = [...karutaData].sort(() => Math.random() - 0.5)
-      setSelectedCards(shuffledCards.slice(0, 4))
-    }
-    readNextCard()
-  }
+      const newStates = [...cardStates];
+      newStates[clickedIndex] = 'moratta';
+      setCardStates(newStates);
+      setMorattaCount(prev => prev + 1);
 
-  const readNextCard = () => {
-    if (cards.length === 0) return
-    
-    const randomCard = cards[Math.floor(Math.random() * cards.length)]
-    setCurrentCard(randomCard)
-    setReadingCard(true)
-    
-    // 音声で上の句を読み上げ
-    if (speechSupported && speechEnabled) {
-      speakText(randomCard.kamiku)
-    }
-    
-    // 読み上げ時間を調整（音声がある場合は少し長く）
-    const readingDuration = speechSupported && speechEnabled ? 5000 : 3000
-    setTimeout(() => {
-      setReadingCard(false)
-    }, readingDuration)
-  }
-
-  const handleCardClick = (card: KarutaCard) => {
-    if (!currentCard || readingCard) return
-
-    if (card.id === currentCard.id) {
-      setScore(score + 1)
-      alert('正解！')
+      // 1.5秒後に新しいカードを配る
+      setTimeout(() => {
+        dealAndPlayNewCards();
+      }, 1500);
     } else {
-      alert('不正解！')
+      // --- お手つきの場合 ---
+      // カードの状態を'otetsuki'に変更するのみ。リセットはしない。
+      const newStates = [...cardStates];
+      newStates[clickedIndex] = 'otetsuki';
+      setCardStates(newStates);
+      // これでユーザーは別のカードを選択して再度回答できる
     }
-    
-    setTimeout(() => {
-      readNextCard()
-    }, 1000)
-  }
-
-  const resetGame = () => {
-    // 音声を停止
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
+  };
+  
+  // 再生・停止ボタンの処理
+  const handlePlayButtonClick = () => {
+    if (isPlaying) {
+      cancel();
+    } else {
+      if (currentCardIdx !== null && cards[currentCardIdx]) {
+        const targetCard = cards[currentCardIdx];
+        speak(targetCard.kami_no_ku, targetCard.shimo_no_ku, () => {});
+      }
     }
-    
-    setGameStarted(false)
-    setCurrentCard(null)
-    setScore(0)
-    setReadingCard(false)
-    setSelectedCards([])
-  }
+  };
 
-  if (!gameStarted) {
-    return (
-      <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-indigo-400 to-purple-500 p-4">
-        <div className="bg-white/95 rounded-2xl p-10 text-center shadow-xl mt-12 max-w-2xl mx-auto">
-          <h1 className="text-2xl md:text-3xl font-bold mb-4 text-gray-800 leading-snug">🎴 かるた</h1>
-          <p>日本の伝統的なかるたゲームです</p>
-          
-          <div className="my-8">
-            <h3>ゲームモードを選択</h3>
-            <label>
-              <input
-                type="radio"
-                value="practice"
-                checked={gameMode === 'practice'}
-                onChange={(e) => setGameMode(e.target.value as 'practice')}
-              />
-              練習モード
-            </label>
-            <label>
-              <input
-                type="radio"
-                value="competitive"
-                checked={gameMode === 'competitive'}
-                onChange={(e) => setGameMode(e.target.value as 'competitive')}
-              />
-              競技モード
-            </label>
-          </div>
+  // --- 初期化 ---
+  React.useEffect(() => {
+    dealAndPlayNewCards();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // マウント時に一度だけ実行
 
-          <div className="my-5 p-5 bg-blue-50/80 rounded-lg border border-blue-100">
-            <h3>音声設定</h3>
-            <label>
-              <input
-                type="checkbox"
-                checked={speechEnabled}
-                onChange={(e) => setSpeechEnabled(e.target.checked)}
-                disabled={!speechSupported}
-              />
-              音声読み上げを有効にする
-              {!speechSupported && <span className="text-red-500 ml-2 italic text-sm">（お使いのブラウザは音声読み上げに対応していません）</span>}
-            </label>
-          </div>
-          
-          <button onClick={startGame} className="bg-gradient-to-r from-red-400 to-orange-500 text-white px-10 py-4 text-lg rounded-full cursor-pointer transition hover:-translate-y-1 hover:shadow-lg">
-            ゲーム開始
-          </button>
-          
-          <div className="mt-8 text-left bg-gray-50/80 p-5 rounded-lg">
-            <h3>遊び方</h3>
-            <ul>
-              <li>上の句が読まれたら、対応する下の句のカードをクリック</li>
-              <li>練習モード：全てのカードから選択</li>
-              <li>競技モード：限られたカードから素早く選択</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // --- スタイル定義 ---
+  const getBorderColor = (state: CardState) => {
+    switch (state) {
+      case 'moratta':
+        return 'border-green-500 shadow-lg shadow-green-500/50';
+      case 'otetsuki':
+        return 'border-red-500 shadow-lg shadow-red-500/50';
+      default:
+        return 'border-gray-300 dark:border-gray-600';
+    }
+  };
 
   return (
-    <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-indigo-400 to-purple-500 p-4">
-      <div className="flex flex-col md:flex-row justify-between items-center bg-white/95 p-6 md:p-8 rounded-xl mb-6 shadow-lg gap-4 md:gap-0">
-        <h1 className="text-2xl md:text-3xl font-bold mb-4 text-gray-800 leading-snug">🎴 かるた</h1>
-        <div className="flex flex-col md:flex-row gap-4 items-center">
-          <span>スコア: {score}</span>
-          <span>モード: {gameMode === 'practice' ? '練習' : '競技'}</span>
-          {speechSupported && (
-            <label className="flex items-center text-gray-600 cursor-pointer bg-white/80 px-3 py-2 rounded-xl border border-gray-200 transition hover:bg-white hover:shadow">
-              <input
-                type="checkbox"
-                checked={speechEnabled}
-                onChange={(e) => setSpeechEnabled(e.target.checked)}
-              />
-              🔊 音声
-            </label>
-          )}
-          <button onClick={resetGame} className="bg-gray-500 text-white px-5 py-2 rounded-full cursor-pointer transition hover:bg-gray-700">
-            メニューに戻る
-          </button>
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 grid grid-rows-[auto_1fr_auto] font-sans overflow-x-hidden">
+      {/* ヘッダー */}
+      <header className="w-full flex justify-between items-center px-2">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-700 dark:text-gray-300">かるた</h1>
+        <div className="text-lg md:text-xl font-semibold bg-white dark:bg-gray-800 px-4 py-2 rounded-lg shadow">
+          もらった枚数: <span className="text-2xl md:text-3xl font-bold text-green-600">{morattaCount}</span>
         </div>
-      </div>
+      </header>
 
-      <div className="bg-white/95 p-8 rounded-xl mb-6 text-center shadow-lg">
-        <h2>読み上げ</h2>
-        {currentCard ? (
-          <div className={`bg-gradient-to-br from-yellow-100 to-pink-200 p-6 rounded-xl border-4 border-transparent transition-all ${readingCard ? 'border-green-400 animate-pulse' : ''}`}>
-            <div className="text-xl md:text-2xl font-bold mb-4 text-gray-800 leading-snug">{currentCard.kamiku}</div>
-            <div className="text-base text-gray-500 italic">- {currentCard.author} -</div>
-            {readingCard && (
-              <div className="mt-4 text-green-500 font-bold animate-pulse text-base">
-                {speechSupported && speechEnabled ? '🔊 読み上げ中...' : '読み上げ中...'}
+      {/* カードグリッド */}
+      <main
+        className="max-w-3xl w-full mx-auto grid grid-cols-2 grid-rows-2 gap-3 md:gap-4 lg:gap-6 p-2 box-border lg:grid-cols-4 lg:grid-rows-1"
+      >
+        {cards.map((card, index) => (
+          <button
+            key={card.id}
+            onClick={() => handleCardClick(index)}
+            disabled={isAnswering}
+            className={`
+              relative flex items-center justify-center
+              aspect-[52/73] w-full max-w-[400px] mx-auto rounded-xl overflow-hidden
+              border-4 transition-all duration-300 ease-in-out transform
+              hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-400
+              ${getBorderColor(cardStates[index])}
+              ${isAnswering ? 'cursor-not-allowed' : 'cursor-pointer'}
+            `}
+            style={{ aspectRatio: '52 / 73' }}
+          >
+            <img
+              src={card.img}
+              alt={`かるた ${card.kami_no_ku} ${card.shimo_no_ku}`}
+              className="w-full h-full object-cover"
+              style={{ aspectRatio: '52 / 73', width: '100%', height: '100%', maxWidth: '100%', maxHeight: '100%' }}
+              onError={(e) => { e.currentTarget.src = 'https://placehold.co/600x400/cccccc/ffffff?text=Error'; }}
+            />
+            <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+            {cardStates[index] === 'moratta' && (
+              <div className="absolute inset-0 flex items-center justify-center text-white text-4xl md:text-6xl font-bold bg-green-500 bg-opacity-70">
+                <span>正解！</span>
               </div>
             )}
-          </div>
-        ) : (
-          <div className="text-lg text-gray-500 p-8">次の札を準備中...</div>
-        )}
-      </div>
+            {cardStates[index] === 'otetsuki' && (
+              <div className="absolute inset-0 flex items-center justify-center text-white text-4xl md:text-6xl font-bold bg-red-500 bg-opacity-70">
+                <span>お手つき</span>
+              </div>
+            )}
+          </button>
+        ))}
+      </main>
 
-      <div className="bg-white/95 p-8 rounded-xl shadow-lg">
-        <h3>札を取ろう！</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 justify-center">
-          {(gameMode === 'practice' ? cards : selectedCards).map((card) => (
-            <div
-              key={card.id}
-              className={`bg-gradient-to-br from-cyan-100 to-pink-100 border-2 border-gray-200 rounded-xl p-5 cursor-pointer transition hover:-translate-y-1 hover:shadow-lg hover:border-blue-300 text-center min-h-[120px] flex flex-col justify-center ${readingCard ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''}`}
-              onClick={() => handleCardClick(card)}
-            >
-              <div className="text-base md:text-lg font-bold text-gray-800 mb-2 leading-snug">{card.shimoku}</div>
-              <div className="text-sm text-gray-500 italic">{card.author}</div>
+      {/* フッター */}
+      <footer className="bg-gray-900 dark:bg-black text-white p-3 shadow-2xl-top w-full flex justify-center box-border">
+        <div className="w-full max-w-3xl flex items-center justify-between gap-4">
+          {/* 流れるテキスト */}
+          <div className="flex-grow overflow-hidden">
+            <div className="whitespace-nowrap animate-marquee text-lg">
+              {marqueeText}
             </div>
-          ))}
+          </div>
+          {/* 再生ボタン */}
+          <button
+            onClick={handlePlayButtonClick}
+            className="flex-shrink-0 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white flex items-center justify-center shadow-lg transition-transform transform hover:scale-110"
+            aria-label={isPlaying ? "停止" : "再生"}
+          >
+            {isPlaying ? (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+              </svg>
+            )}
+          </button>
         </div>
-      </div>
+      </footer>
     </div>
-  )
+  );
 }
-
-export default App
