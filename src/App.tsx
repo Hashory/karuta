@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import './App.css'
 
 interface KarutaCard {
   id: number
@@ -172,12 +171,12 @@ function App() {
 
   if (!gameStarted) {
     return (
-      <div className="app">
-        <div className="menu">
-          <h1>🎴 かるた</h1>
+      <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-indigo-400 to-purple-500 p-4">
+        <div className="bg-white/95 rounded-2xl p-10 text-center shadow-xl mt-12 max-w-2xl mx-auto">
+          <h1 className="text-2xl md:text-3xl font-bold mb-4 text-gray-800 leading-snug">🎴 かるた</h1>
           <p>日本の伝統的なかるたゲームです</p>
           
-          <div className="game-mode-selection">
+          <div className="my-8">
             <h3>ゲームモードを選択</h3>
             <label>
               <input
@@ -199,7 +198,7 @@ function App() {
             </label>
           </div>
 
-          <div className="speech-settings">
+          <div className="my-5 p-5 bg-blue-50/80 rounded-lg border border-blue-100">
             <h3>音声設定</h3>
             <label>
               <input
@@ -209,15 +208,15 @@ function App() {
                 disabled={!speechSupported}
               />
               音声読み上げを有効にする
-              {!speechSupported && <span className="not-supported">（お使いのブラウザは音声読み上げに対応していません）</span>}
+              {!speechSupported && <span className="text-red-500 ml-2 italic text-sm">（お使いのブラウザは音声読み上げに対応していません）</span>}
             </label>
           </div>
           
-          <button onClick={startGame} className="start-button">
+          <button onClick={startGame} className="bg-gradient-to-r from-red-400 to-orange-500 text-white px-10 py-4 text-lg rounded-full cursor-pointer transition hover:-translate-y-1 hover:shadow-lg">
             ゲーム開始
           </button>
           
-          <div className="instructions">
+          <div className="mt-8 text-left bg-gray-50/80 p-5 rounded-lg">
             <h3>遊び方</h3>
             <ul>
               <li>上の句が読まれたら、対応する下の句のカードをクリック</li>
@@ -231,14 +230,14 @@ function App() {
   }
 
   return (
-    <div className="app">
-      <div className="game-header">
-        <h1>🎴 かるた</h1>
-        <div className="game-info">
+    <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-indigo-400 to-purple-500 p-4">
+      <div className="flex flex-col md:flex-row justify-between items-center bg-white/95 p-6 md:p-8 rounded-xl mb-6 shadow-lg gap-4 md:gap-0">
+        <h1 className="text-2xl md:text-3xl font-bold mb-4 text-gray-800 leading-snug">🎴 かるた</h1>
+        <div className="flex flex-col md:flex-row gap-4 items-center">
           <span>スコア: {score}</span>
           <span>モード: {gameMode === 'practice' ? '練習' : '競技'}</span>
           {speechSupported && (
-            <label className="speech-toggle">
+            <label className="flex items-center text-gray-600 cursor-pointer bg-white/80 px-3 py-2 rounded-xl border border-gray-200 transition hover:bg-white hover:shadow">
               <input
                 type="checkbox"
                 checked={speechEnabled}
@@ -247,40 +246,40 @@ function App() {
               🔊 音声
             </label>
           )}
-          <button onClick={resetGame} className="reset-button">
+          <button onClick={resetGame} className="bg-gray-500 text-white px-5 py-2 rounded-full cursor-pointer transition hover:bg-gray-700">
             メニューに戻る
           </button>
         </div>
       </div>
 
-      <div className="reading-area">
+      <div className="bg-white/95 p-8 rounded-xl mb-6 text-center shadow-lg">
         <h2>読み上げ</h2>
         {currentCard ? (
-          <div className={`reading-card ${readingCard ? 'reading' : ''}`}>
-            <div className="kamiku">{currentCard.kamiku}</div>
-            <div className="author">- {currentCard.author} -</div>
+          <div className={`bg-gradient-to-br from-yellow-100 to-pink-200 p-6 rounded-xl border-4 border-transparent transition-all ${readingCard ? 'border-green-400 animate-pulse' : ''}`}>
+            <div className="text-xl md:text-2xl font-bold mb-4 text-gray-800 leading-snug">{currentCard.kamiku}</div>
+            <div className="text-base text-gray-500 italic">- {currentCard.author} -</div>
             {readingCard && (
-              <div className="reading-indicator">
+              <div className="mt-4 text-green-500 font-bold animate-pulse text-base">
                 {speechSupported && speechEnabled ? '🔊 読み上げ中...' : '読み上げ中...'}
               </div>
             )}
           </div>
         ) : (
-          <div className="waiting">次の札を準備中...</div>
+          <div className="text-lg text-gray-500 p-8">次の札を準備中...</div>
         )}
       </div>
 
-      <div className="cards-area">
+      <div className="bg-white/95 p-8 rounded-xl shadow-lg">
         <h3>札を取ろう！</h3>
-        <div className="cards-grid">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 justify-center">
           {(gameMode === 'practice' ? cards : selectedCards).map((card) => (
             <div
               key={card.id}
-              className={`card ${readingCard ? 'disabled' : ''}`}
+              className={`bg-gradient-to-br from-cyan-100 to-pink-100 border-2 border-gray-200 rounded-xl p-5 cursor-pointer transition hover:-translate-y-1 hover:shadow-lg hover:border-blue-300 text-center min-h-[120px] flex flex-col justify-center ${readingCard ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''}`}
               onClick={() => handleCardClick(card)}
             >
-              <div className="shimoku">{card.shimoku}</div>
-              <div className="card-author">{card.author}</div>
+              <div className="text-base md:text-lg font-bold text-gray-800 mb-2 leading-snug">{card.shimoku}</div>
+              <div className="text-sm text-gray-500 italic">{card.author}</div>
             </div>
           ))}
         </div>
